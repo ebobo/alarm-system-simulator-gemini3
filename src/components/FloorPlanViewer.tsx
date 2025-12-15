@@ -1,7 +1,8 @@
-import React, { useRef } from 'react';
+import React, { forwardRef, useImperativeHandle, useRef } from 'react';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import type { ReactZoomPanPinchRef } from 'react-zoom-pan-pinch';
 import { ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import { useDroppable } from '@dnd-kit/core';
 
 interface FloorPlanViewerProps {
     imageUrl?: string;
@@ -9,18 +10,27 @@ interface FloorPlanViewerProps {
     children?: React.ReactNode;
 }
 
-export const FloorPlanViewer: React.FC<FloorPlanViewerProps> = ({
+export const FloorPlanViewer = forwardRef<ReactZoomPanPinchRef, FloorPlanViewerProps>(({
     imageUrl,
     initialScale = 1,
     children
-}) => {
-    const transformComponentRef = useRef<ReactZoomPanPinchRef>(null);
+}, ref) => {
+    // Internal state for scale (just for UI update)
     const [currentScale, setCurrentScale] = React.useState(initialScale);
+
+    // Drop zone
+    const { setNodeRef } = useDroppable({
+        id: 'floor-plan-droppable',
+    });
+
+    const transformComponentRef = useRef<ReactZoomPanPinchRef>(null);
+
+    useImperativeHandle(ref, () => transformComponentRef.current!, []);
 
     return (
         <div className="relative w-full h-full bg-slate-50 overflow-hidden">
             {/* Floating Controls */}
-            <div className="absolute top-4 right-4 z-20 flex flex-col gap-2 bg-white/90 p-2 rounded-lg shadow-md backdrop-blur-sm border border-slate-200">
+            <div className="absolute bottom-4 left-4 z-20 flex flex-col gap-2 bg-white/90 p-2 rounded-lg shadow-md backdrop-blur-sm border border-slate-200">
                 <button
                     onClick={() => transformComponentRef.current?.zoomIn()}
                     className="p-2 hover:bg-slate-100 rounded-md transition-colors text-slate-700"
@@ -67,7 +77,12 @@ export const FloorPlanViewer: React.FC<FloorPlanViewerProps> = ({
                             wrapperClass="!w-full !h-full"
                             contentClass="!w-full !h-full flex items-center justify-center p-20"
                         >
-                            <div className="relative shadow-2xl bg-white">
+                            {/* The Container for the Plan */}
+                            <div
+                                id="floor-plan-content"
+                                ref={setNodeRef}
+                                className="relative shadow-2xl bg-white"
+                            >
                                 {imageUrl && (
                                     <img
                                         src={imageUrl}
@@ -76,6 +91,7 @@ export const FloorPlanViewer: React.FC<FloorPlanViewerProps> = ({
                                         draggable={false}
                                     />
                                 )}
+                                {/* Overlay / Children (Devices) go here, inside the transform context */}
                                 {children}
                             </div>
                         </TransformComponent>
@@ -84,4 +100,6 @@ export const FloorPlanViewer: React.FC<FloorPlanViewerProps> = ({
             </TransformWrapper>
         </div>
     );
-};
+});
+
+FloorPlanViewer.displayName = 'FloorPlanViewer';
