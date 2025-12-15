@@ -13,18 +13,14 @@ const BASE_HEIGHT = 40;
 // Let's do 4 pairs distributed: Top-Right, Bottom-Right, Bottom-Left, Top-Left.
 
 const terminals: Terminal[] = [
-    // Pair 1 (Top Right)
-    { id: '1+', x: 10, y: -16, label: '+', isPositive: true, pairIndex: 0 },
-    { id: '1-', x: 16, y: -10, label: '-', isPositive: false, pairIndex: 0 },
-    // Pair 2 (Bottom Right)
-    { id: '2+', x: 16, y: 10, label: '+', isPositive: true, pairIndex: 1 },
-    { id: '2-', x: 10, y: 16, label: '-', isPositive: false, pairIndex: 1 },
-    // Pair 3 (Bottom Left)
-    { id: '3+', x: -10, y: 16, label: '+', isPositive: true, pairIndex: 2 },
-    { id: '3-', x: -16, y: 10, label: '-', isPositive: false, pairIndex: 2 },
-    // Pair 4 (Top Left)
-    { id: '4+', x: -16, y: -10, label: '+', isPositive: true, pairIndex: 3 },
-    { id: '4-', x: -10, y: -16, label: '-', isPositive: false, pairIndex: 3 },
+    // Top
+    { id: 'T', x: 0, y: -16, label: 'Top', isPositive: true, pairIndex: 0 },
+    // Right
+    { id: 'R', x: 16, y: 0, label: 'Right', isPositive: true, pairIndex: 1 },
+    // Bottom
+    { id: 'B', x: 0, y: 16, label: 'Bottom', isPositive: true, pairIndex: 2 },
+    // Left
+    { id: 'L', x: -16, y: 0, label: 'Left', isPositive: true, pairIndex: 3 },
 ];
 
 export const DEVICE_DEFINITIONS: Record<string, DeviceTypeDefinition> = {

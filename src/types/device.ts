@@ -32,3 +32,20 @@ export interface Point {
     x: number;
     y: number;
 }
+
+export interface Wire {
+    id: string;
+    startDeviceId: string;
+    startTerminalId: string;
+    endDeviceId: string;
+    endTerminalId: string;
+}
+
+export interface ActiveWire {
+    startDeviceId: string;
+    startTerminalId: string;
+    startX: number;
+    startY: number;
+    currentX: number;
+    currentY: number;
+}

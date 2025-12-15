@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { FloorPlanViewer } from './components/FloorPlanViewer';
 import { PlanSelector } from './components/PlanSelector';
 import type { Plan } from './components/PlanSelector';
@@ -8,8 +8,11 @@ import { DndContext, DragOverlay, useSensor, useSensors, PointerSensor, type Dra
 import type { ReactZoomPanPinchRef } from 'react-zoom-pan-pinch';
 import { DevicePalette } from './components/DevicePalette';
 import { DeviceOverlay } from './components/DeviceOverlay';
-import type { PlacedDevice, DeviceTypeId } from './types/device';
+import { DeviceNode } from './components/DeviceNode';
+import { WireOverlay } from './components/WireOverlay';
+import type { PlacedDevice, DeviceTypeId, Wire, ActiveWire } from './types/device';
 import { ChevronRight, ChevronLeft } from 'lucide-react';
+import { DEVICE_DEFINITIONS } from './config/devices';
 
 // Sample data
 const generateDefaultPlan = (): Plan[] => {
@@ -38,6 +41,10 @@ function App() {
   const [placedDevices, setPlacedDevices] = useState<PlacedDevice[]>([]);
   const [activeDragType, setActiveDragType] = useState<DeviceTypeId | null>(null);
 
+  // Wire State
+  const [wires, setWires] = useState<Wire[]>([]);
+  const [activeWire, setActiveWire] = useState<ActiveWire | null>(null);
+
   const activePlan = plans.find(p => p.id === activePlanId) || plans[0];
   const floorPlanRef = useRef<ReactZoomPanPinchRef>(null);
 
@@ -48,6 +55,95 @@ function App() {
       },
     })
   );
+
+  // Helper to convert screen to plan coordinates
+  const screenToPlan = useCallback((screenX: number, screenY: number) => {
+    const transformState = floorPlanRef.current?.instance.transformState;
+    const contentNode = document.getElementById('floor-plan-content');
+
+    if (transformState && contentNode) {
+      const contentRect = contentNode.getBoundingClientRect();
+      const scale = transformState.scale;
+      return {
+        x: (screenX - contentRect.left) / scale,
+        y: (screenY - contentRect.top) / scale
+      };
+    }
+    return null;
+  }, []);
+
+  // Wiring Handlers
+  const handleTerminalMouseDown = (deviceId: string, terminalId: string, event: React.MouseEvent) => {
+    const device = placedDevices.find(d => d.id === deviceId);
+    if (!device) return;
+
+    const def = DEVICE_DEFINITIONS[device.typeId];
+    const terminal = def.terminals.find(t => t.id === terminalId);
+    if (!terminal) return;
+
+    const startX = device.x + terminal.x;
+    const startY = device.y + terminal.y;
+
+    setActiveWire({
+      startDeviceId: deviceId,
+      startTerminalId: terminalId,
+      startX,
+      startY,
+      currentX: startX,
+      currentY: startY
+    });
+  };
+
+  const handleTerminalMouseUp = (deviceId: string, terminalId: string, event: React.MouseEvent) => {
+    if (activeWire) {
+      // Verify we aren't connecting to the same terminal (or same device if we want to forbid self-loops)
+      if (activeWire.startDeviceId === deviceId && activeWire.startTerminalId === terminalId) {
+        setActiveWire(null);
+        return;
+      }
+
+      const newWire: Wire = {
+        id: `wire-${Date.now()}`,
+        startDeviceId: activeWire.startDeviceId,
+        startTerminalId: activeWire.startTerminalId,
+        endDeviceId: deviceId,
+        endTerminalId: terminalId
+      };
+
+      setWires(prev => [...prev, newWire]);
+      setActiveWire(null);
+    }
+  };
+
+  // Global mouse move/up for wiring
+  useEffect(() => {
+    if (!activeWire) return;
+
+    const handleWindowMouseMove = (e: MouseEvent) => {
+      const coords = screenToPlan(e.clientX, e.clientY);
+      if (coords) {
+        setActiveWire(prev => prev ? {
+          ...prev,
+          currentX: coords.x,
+          currentY: coords.y
+        } : null);
+      }
+    };
+
+    const handleWindowMouseUp = () => {
+      setActiveWire(null);
+    };
+
+    // Add listeners
+    window.addEventListener('mousemove', handleWindowMouseMove);
+    window.addEventListener('mouseup', handleWindowMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', handleWindowMouseMove);
+      window.removeEventListener('mouseup', handleWindowMouseUp);
+    };
+  }, [activeWire, screenToPlan]);
+
 
   const handleFileUpload = (file: File) => {
     const newPlanId = `custom-${Date.now()}`;
@@ -107,38 +203,20 @@ function App() {
 
     if (!over || over.id !== 'floor-plan-droppable') return;
 
-    // Coordinate calculation
-    // We need the drop position relative to the viewport
-    // event.activatorEvent is the pointer event (usually)
-    // But dnd-kit provides coordinates in `event.delta` relative to start, or we can use the pointer position if we track it?
-    // dnd-kit doesn't expose absolute pointer coordinates in DragEndEvent directly easily without modifiers.
-    // However, we can calculate it from the droppable rect? 
-    // Actually, `active.rect` might help, but we want the cursor position or the center of the item?
-    // Let's assume we want the center of the dropped item.
-
-    // Better approach: Use the client coordinates of the drop.
-    // We can get them from the sensor event or by adding delta to initial.
-    // But simplest is:
-    // `event.active.rect.current.translated` gives the simplified rect on screen.
-
+    // Calculation logic shared for both new and existing
     const dropRect = event.active.rect.current.translated;
     if (!dropRect) return;
 
     const dropX = dropRect.left + dropRect.width / 2;
     const dropY = dropRect.top + dropRect.height / 2;
 
-    // Now convert screen (dropX, dropY) to plan coordinates.
-    // 1. Get Transform State
     const transformState = floorPlanRef.current?.instance.transformState;
-
-    // 2. Get the actual content bounding rect (which includes scale/pan/padding)
     const contentNode = document.getElementById('floor-plan-content');
 
     if (transformState && contentNode) {
       const contentRect = contentNode.getBoundingClientRect();
       const scale = transformState.scale;
 
-      // Calculate position relative to the content's top-left, then unscale
       const planX = (dropX - contentRect.left) / scale;
       const planY = (dropY - contentRect.top) / scale;
 
@@ -149,7 +227,6 @@ function App() {
         y: planY,
         rotation: 0
       };
-
       setPlacedDevices(prev => [...prev, newDevice]);
     }
   };
@@ -181,7 +258,16 @@ function App() {
               key={activePlanId}
               imageUrl={activePlan.imageUrl}
             >
-              <DeviceOverlay devices={placedDevices} />
+              <WireOverlay
+                wires={wires}
+                activeWire={activeWire}
+                devices={placedDevices}
+              />
+              <DeviceOverlay
+                devices={placedDevices}
+                onTerminalMouseDown={handleTerminalMouseDown}
+                onTerminalMouseUp={handleTerminalMouseUp}
+              />
             </FloorPlanViewer>
           </div>
 

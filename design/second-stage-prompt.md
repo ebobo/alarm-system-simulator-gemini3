@@ -17,9 +17,8 @@ CONTEXT
 	•	Device documentation provided: AutroGuard V-430 datasheet (PDF):  ￼ (use it only for context; the core requirement here is UI drag/drop + connection points).
 
 INPUT
-	•	Existing codebase: React 18 + TypeScript (assume Vite unless you need otherwise).
 	•	Current floor plan viewer has:
-	•	A background plan image (PNG/JPG or SVG)
+	•	A background plan image (SVG)
 	•	Zoom + pan transforms
 	•	First draggable device:
 	•	Name: AutroGuard Base
