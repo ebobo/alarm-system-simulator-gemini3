@@ -40,6 +40,7 @@ function App() {
   // Device State
   const [placedDevices, setPlacedDevices] = useState<PlacedDevice[]>([]);
   const [activeDragType, setActiveDragType] = useState<DeviceTypeId | null>(null);
+  const [activeDragDevice, setActiveDragDevice] = useState<PlacedDevice | null>(null);
 
   // Wire State
   const [wires, setWires] = useState<Wire[]>([]);
@@ -194,19 +195,27 @@ function App() {
   const handleDragStart = (event: any) => {
     if (event.active.data.current?.isPaletteItem) {
       setActiveDragType(event.active.data.current.typeId);
+      setActiveDragDevice(null);
+    } else if (event.active.data.current?.isPlacedDevice) {
+      setActiveDragType(event.active.data.current.device.typeId);
+      setActiveDragDevice(event.active.data.current.device);
     }
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
     setActiveDragType(null);
+    setActiveDragDevice(null);
     const { active, over } = event;
 
     if (!over || over.id !== 'floor-plan-droppable') return;
 
-    // Calculation logic shared for both new and existing
     const dropRect = event.active.rect.current.translated;
     if (!dropRect) return;
 
+    // dropRect is the final client rect of the dragged element (DraggableDevice div).
+    // DraggableDevice div is sized to the device (e.g. 32x32) and centered on x,y.
+    // dropRect.left, dropRect.top is the top-left of that box.
+    // Center is left + width/2.
     const dropX = dropRect.left + dropRect.width / 2;
     const dropY = dropRect.top + dropRect.height / 2;
 
@@ -220,14 +229,23 @@ function App() {
       const planX = (dropX - contentRect.left) / scale;
       const planY = (dropY - contentRect.top) / scale;
 
-      const newDevice: PlacedDevice = {
-        id: `dev-${Date.now()}`,
-        typeId: active.data.current?.typeId || 'autroguard-base',
-        x: planX,
-        y: planY,
-        rotation: 0
-      };
-      setPlacedDevices(prev => [...prev, newDevice]);
+      if (active.data.current?.isPaletteItem) {
+        const newDevice: PlacedDevice = {
+          id: `dev-${Date.now()}`,
+          typeId: active.data.current?.typeId || 'autroguard-base',
+          x: planX,
+          y: planY,
+          rotation: 0
+        };
+        setPlacedDevices(prev => [...prev, newDevice]);
+      } else if (active.data.current?.isPlacedDevice) {
+        setPlacedDevices(prev => prev.map(d => {
+          if (d.id === active.id) {
+            return { ...d, x: planX, y: planY };
+          }
+          return d;
+        }));
+      }
     }
   };
 
@@ -297,8 +315,8 @@ function App() {
         {/* Drag Overlay for ghost */}
         <DragOverlay>
           {activeDragType ? (
-            <div className="w-10 h-10 bg-slate-100/80 rounded-full border-2 border-slate-700 shadow-xl flex items-center justify-center">
-              <div className="w-6 h-6 rounded-full border border-slate-400 bg-white" />
+            <div style={{ width: 32, height: 32 }}>
+              <DeviceNode typeId={activeDragType} rotation={0} />
             </div>
           ) : null}
         </DragOverlay>

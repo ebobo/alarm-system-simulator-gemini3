@@ -24,11 +24,8 @@ export const DeviceNode: React.FC<DeviceNodeProps> = ({
 
     return (
         <div
-            className={`absolute flex items-center justify-center group select-none ${className || ''}`}
+            className={`relative w-full h-full flex items-center justify-center group select-none ${className || ''}`}
             style={{
-                width: def.width,
-                height: def.height,
-                transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
                 ...style
             }}
         >
@@ -48,6 +45,9 @@ export const DeviceNode: React.FC<DeviceNodeProps> = ({
                         e.stopPropagation();
                         onTerminalMouseDown?.(t.id, e);
                     }}
+                    onPointerDown={(e) => {
+                        e.stopPropagation();
+                    }}
                     onMouseUp={(e) => {
                         onTerminalMouseUp?.(t.id, e);
                     }}
@@ -55,7 +55,10 @@ export const DeviceNode: React.FC<DeviceNodeProps> = ({
             ))}
 
             {/* Visual Body */}
-            <div className="w-full h-full rounded-full bg-white border-2 border-slate-700 shadow-sm relative transition-shadow hover:shadow-md z-0 overflow-hidden">
+            <div
+                className="w-full h-full rounded-full bg-white border-2 border-slate-700 shadow-sm relative transition-shadow hover:shadow-md z-0 overflow-hidden"
+                style={{ transform: `rotate(${rotation}deg)` }}
+            >
                 {/* Center Icon/Label */}
                 <div className="absolute inset-0 flex items-center justify-center text-[8px] font-bold text-slate-500 select-none pointer-events-none">
                     AG
